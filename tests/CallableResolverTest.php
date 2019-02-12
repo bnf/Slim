@@ -10,6 +10,7 @@ namespace Slim\Tests;
 
 use Pimple\Container as Pimple;
 use Pimple\Psr11\Container;
+use Psr\Container\ContainerInterface;
 use Slim\CallableResolver;
 use Slim\Tests\Mocks\CallableTest;
 use Slim\Tests\Mocks\InvokableTest;
@@ -40,6 +41,9 @@ class CallableResolverTest extends TestCase
     public function testClosure()
     {
         $test = function () {
+            // @todo  this should rather be `CallableResolverTest::assertNull($this)`, as the container in CallableResolver
+            // is null
+            CallableResolverTest::assertInstanceOf(CallableResolverTest::class, $this);
             static $called_count = 0;
             return $called_count++;
         };
@@ -47,6 +51,28 @@ class CallableResolverTest extends TestCase
         $callable = $resolver->resolve($test);
         $callable();
         $this->assertEquals(1, $callable());
+    }
+
+    public function testClosureBindsContainer()
+    {
+        $test = function () {
+            TestCase::assertInstanceof(ContainerInterface::class, $this);
+        };
+        $resolver = new CallableResolver($this->container);
+        $callable = $resolver->resolve($test);
+        $callable();
+    }
+
+    public function testClosureInContainerIsResolvedAndBindsContainer()
+    {
+        $this->pimple['a_closure'] = $this->pimple->protect(function () {
+            TestCase::assertInstanceof(ContainerInterface::class, $this);
+            static $called_count = 0;
+            return ++$called_count;
+        });
+        $resolver = new CallableResolver($this->container);
+        $callable = $resolver->resolve('a_closure');
+        $this->assertEquals("1", $callable());
     }
 
     public function testFunctionName()
@@ -70,6 +96,17 @@ class CallableResolverTest extends TestCase
         $obj = new CallableTest();
         $resolver = new CallableResolver(); // No container injected
         $callable = $resolver->resolve([$obj, 'toCall']);
+        $callable();
+        $this->assertEquals(1, CallableTest::$CalledCount);
+    }
+
+    public function testObjMethodArrayInContainer()
+    {
+        $obj = new CallableTest();
+        $this->pimple['a_method_array'] = [$obj, 'toCall'];
+        $obj = new CallableTest();
+        $resolver = new CallableResolver($this->container);
+        $callable = $resolver->resolve('a_method_array');
         $callable();
         $this->assertEquals(1, CallableTest::$CalledCount);
     }
@@ -164,6 +201,28 @@ class CallableResolverTest extends TestCase
         $this->pimple['callable_service'] = new CallableTest();
         $resolver = new CallableResolver($this->container);
         $resolver->resolve('callable_service:noFound');
+    }
+
+    /**
+     * @expectedException \RuntimeException
+     */
+    public function testMethodNotFoundThrowExceptionForInvokable()
+    {
+        $this->pimple['an_invokable'] = function ($c) {
+            return new InvokableTest();
+        };
+        $resolver = new CallableResolver($this->container);
+        $resolver->resolve('an_invokable:noFound');
+    }
+
+    /**
+     * @expectedException \RuntimeException
+     */
+    public function testMethodNotFoundThrowExceptionForRequestHandler()
+    {
+        $this->pimple['a_requesthandler'] = new RequestHandlerTest();
+        $resolver = new CallableResolver($this->container);
+        $resolver->resolve('a_requesthandler:noFound');
     }
 
     /**
