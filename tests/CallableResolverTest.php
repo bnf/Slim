@@ -12,6 +12,7 @@ use Pimple\Container as Pimple;
 use Pimple\Psr11\Container;
 use Psr\Container\ContainerInterface;
 use Slim\CallableResolver;
+use Slim\Tests\Mocks\CallableRequestHandlerTest;
 use Slim\Tests\Mocks\CallableTest;
 use Slim\Tests\Mocks\InvokableTest;
 use Slim\Tests\Mocks\RequestHandlerTest;
@@ -33,6 +34,7 @@ class CallableResolverTest extends TestCase
         CallableTest::$CalledCount = 0;
         InvokableTest::$CalledCount = 0;
         RequestHandlerTest::$CalledCount = 0;
+        CallableRequestHandlerTest::$CalledCount = 0;
 
         $this->pimple = new Pimple;
         $this->container = new Container($this->pimple);
@@ -191,6 +193,15 @@ class CallableResolverTest extends TestCase
         $this->assertInternalType('array', $callable);
         $this->assertInstanceOf(RequestHandlerTest::class, $callable[0]);
         $this->assertEquals('custom', $callable[1]);
+    }
+
+    public function testResolutionToAPsrRequestHandlerClassWhichIsAlsoInvokable()
+    {
+        $request = $this->createServerRequest('/', 'GET');
+        $resolver = new CallableResolver(); // No container injected
+        $callable = $resolver->resolve(CallableRequestHandlerTest::class);
+        $callable($request);
+        $this->assertEquals("1", CallableRequestHandlerTest::$CalledCount);
     }
 
     /**
