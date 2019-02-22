@@ -24,9 +24,6 @@ use Slim\Interfaces\CallableResolverInterface;
 use Slim\Interfaces\RouteGroupInterface;
 use Slim\Interfaces\RouteInterface;
 use Slim\Interfaces\RouterInterface;
-use Slim\Middleware\ClosureMiddleware;
-use Slim\Middleware\DeferredResolutionMiddleware;
-use Slim\Middleware\DispatchMiddleware;
 
 /**
  * App
@@ -57,9 +54,9 @@ class App implements RequestHandlerInterface
     protected $callableResolver;
 
     /**
-     * @var MiddlewareRunner
+     * @var MiddlewareDispatcher
      */
-    protected $middlewareRunner;
+    protected $middlewareDispatcher;
 
     /**
      * @var RouterInterface
@@ -104,12 +101,11 @@ class App implements RequestHandlerInterface
         $this->callableResolver = $callableResolver ?? new CallableResolver($container);
         $this->addSettings($settings);
 
-        $this->router = $router ?? new Router($responseFactory, $this->callableResolver);
+        $this->router = $router ?? new Router($responseFactory, $this->callableResolver, $this->container);
         $routerCacheFile = $this->getSetting('routerCacheFile', null);
         $this->router->setCacheFile($routerCacheFile);
 
-        $this->middlewareRunner = new MiddlewareRunner();
-        $this->addMiddleware(new DispatchMiddleware($this->router));
+        $this->middlewareDispatcher = new MiddlewareDispatcher(new RouteDispatcher($this->router), $container);
     }
 
     /**
@@ -118,18 +114,8 @@ class App implements RequestHandlerInterface
      */
     public function add($middleware): self
     {
-        if (is_string($middleware)) {
-            $middleware = new DeferredResolutionMiddleware($middleware, $this->container);
-        } elseif ($middleware instanceof Closure) {
-            $middleware = new ClosureMiddleware($middleware);
-        } elseif (!($middleware instanceof MiddlewareInterface)) {
-            throw new RuntimeException(
-                'Parameter 1 of `Slim\App::add()` must be a closure or an object/class name '.
-                'referencing an implementation of MiddlewareInterface.'
-            );
-        }
-
-        return $this->addMiddleware($middleware);
+        $this->middlewareDispatcher->add($middleware);
+        return $this;
     }
 
     /**
@@ -138,7 +124,7 @@ class App implements RequestHandlerInterface
      */
     public function addMiddleware(MiddlewareInterface $middleware): self
     {
-        $this->middlewareRunner->add($middleware);
+        $this->middlewareDispatcher->addMiddleware($middleware);
         return $this;
     }
 
@@ -420,7 +406,7 @@ class App implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $response = $this->middlewareRunner->run($request);
+        $response = $this->middlewareDispatcher->handle($request);
 
         /**
          * This is to be in compliance with RFC 2616, Section 9.
