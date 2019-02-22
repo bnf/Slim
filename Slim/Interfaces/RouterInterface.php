@@ -13,6 +13,7 @@ namespace Slim\Interfaces;
 
 use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 use RuntimeException;
 use Slim\RoutingResults;
 
@@ -22,7 +23,7 @@ use Slim\RoutingResults;
  * @package Slim
  * @since   3.0.0
  */
-interface RouterInterface
+interface RouterInterface extends RequestHandlerInterface
 {
     /**
      * Add route

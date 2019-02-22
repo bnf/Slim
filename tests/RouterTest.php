@@ -9,6 +9,8 @@
 namespace Slim\Tests;
 
 use FastRoute\RouteCollector;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use Slim\CallableResolver;
 use Slim\Dispatcher;
@@ -214,7 +216,7 @@ class RouterTest extends TestCase
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
         $invocationStrategy = new InvocationStrategyTest();
-        $router = new Router($responseFactory, $callableResolver, $invocationStrategy);
+        $router = new Router($responseFactory, $callableResolver, null, $invocationStrategy);
 
         $this->assertEquals($invocationStrategy, $router->getDefaultInvocationStrategy());
     }
@@ -423,5 +425,23 @@ class RouterTest extends TestCase
     public function testLookupRouteThrowsExceptionIfRouteNotFound()
     {
         $this->router->lookupRoute("thisIsMissing");
+    }
+
+    public function testRoutingIsPerformedIfRoutingResultsAreUnavailable()
+    {
+        $handler = (function (ServerRequestInterface $request, ResponseInterface $response) {
+            $routingResults = $request->getAttribute('routingResults');
+            $this->assertInstanceOf(RoutingResults::class, $routingResults);
+            return $response;
+        })->bindTo($this);
+
+        $callableResolver = new CallableResolver();
+        $responseFactory = $this->getResponseFactory();
+        $router = new Router($responseFactory, $callableResolver);
+        $router->map(['GET'], '/hello/{name}', $handler);
+
+        $request = $this->createServerRequest('https://example.com:443/hello/foo', 'GET');
+
+        $router->handle($request);
     }
 }
