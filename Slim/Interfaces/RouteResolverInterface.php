@@ -22,5 +22,5 @@ interface RouteResolverInterface
      * @param string $identifier
      * @return RouteInterface
      */
-    public function getRouteHandler(string $identifier): RouteInterface;
+    public function getRoute(string $identifier): RouteInterface;
 }

@@ -67,7 +67,7 @@ class RouteResolver implements RouteResolverInterface
      * @param string $identifier
      * @return Route
      */
-    public function getRouteHandler(string $identifier): RouteInterface
+    public function getRoute(string $identifier): RouteInterface
     {
         return $this->routeCollector->lookupRoute($identifier);
     }

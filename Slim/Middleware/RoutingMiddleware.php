@@ -75,7 +75,7 @@ class RoutingMiddleware implements MiddlewareInterface
             case Dispatcher::FOUND:
                 $routeArguments = $routingResults->getRouteArguments();
                 $routeIdentifier = $routingResults->getRouteIdentifier() ?? '';
-                $route = $this->routeResolver->getRouteHandler($routeIdentifier);
+                $route = $this->routeResolver->getRoute($routeIdentifier);
                 $route->prepare($request, $routeArguments);
                 return $request
                     ->withAttribute('route', $route)
