@@ -13,19 +13,25 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Slim\CallableResolver;
 use Slim\Middleware\RoutingMiddleware;
 use Slim\MiddlewareDispatcher;
+use Slim\RouteResolver;
 use Slim\RoutingResults;
-use Slim\Router;
+use Slim\RouteCollector;
 use Slim\Tests\TestCase;
 
 class RoutingMiddlewareTest extends TestCase
 {
-    protected function getRouter()
+    protected function getRouteCollector()
     {
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
-        $router = new Router($responseFactory, $callableResolver);
-        $router->map(['GET'], '/hello/{name}', null);
-        return $router;
+        $routeCollector = new RouteCollector($responseFactory, $callableResolver);
+        $routeCollector->map(['GET'], '/hello/{name}', null);
+        return $routeCollector;
+    }
+
+    protected function getRouteResolver() {
+        $routeCollector = $this->getRouteCollector();
+        return new RouteResolver($routeCollector);
     }
 
     public function testRouteIsStoredOnSuccessfulMatch()
@@ -43,8 +49,8 @@ class RoutingMiddlewareTest extends TestCase
             return $responseFactory->createResponse();
         })->bindTo($this);
 
-        $router = $this->getRouter();
-        $mw2 = new RoutingMiddleware($router);
+        $routeResolver = $this->getRouteResolver();
+        $mw2 = new RoutingMiddleware($routeResolver);
 
         $request = $this->createServerRequest('https://example.com:443/hello/foo', 'GET');
 
@@ -74,7 +80,7 @@ class RoutingMiddlewareTest extends TestCase
             return $responseFactory->createResponse();
         })->bindTo($this);
 
-        $router = $this->getRouter();
+        $router = $this->getRouteResolver();
         $mw2 = new RoutingMiddleware($router);
 
         $request = $this->createServerRequest('https://example.com:443/hello/foo', 'POST');
