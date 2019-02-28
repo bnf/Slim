@@ -11,25 +11,18 @@ declare(strict_types=1);
 
 namespace Slim;
 
-use FastRoute\RouteCollector;
 use FastRoute\RouteParser;
-use FastRoute\RouteParser\Std as StdParser;
+use FastRoute\RouteParser\Std;
 use InvalidArgumentException;
 use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 use RuntimeException;
 use Slim\Handlers\Strategies\RequestResponse;
-use Slim\Exception\HttpMethodNotAllowedException;
-use Slim\Exception\HttpNotFoundException;
 use Slim\Interfaces\CallableResolverInterface;
 use Slim\Interfaces\InvocationStrategyInterface;
+use Slim\Interfaces\RouteCollectorInterface;
 use Slim\Interfaces\RouteGroupInterface;
 use Slim\Interfaces\RouteInterface;
-use Slim\Interfaces\RouterInterface;
-use Slim\Middleware\RoutingMiddleware;
 
 /**
  * Router
@@ -39,15 +32,8 @@ use Slim\Middleware\RoutingMiddleware;
  * finding routes that match the current HTTP request, and creating
  * URLs for a named route.
  */
-class Router implements RouterInterface
+class RouteCollector implements RouteCollectorInterface
 {
-    /**
-     * Parser
-     *
-     * @var RouteParser
-     */
-    protected $routeParser;
-
     /**
      * @var CallableResolverInterface
      */
@@ -109,26 +95,31 @@ class Router implements RouterInterface
     protected $responseFactory;
 
     /**
-     * Create new router
+     * @var RouteParser
+     */
+    protected $routeParser;
+
+    /**
+     * Create new routeCollector
      *
      * @param ResponseFactoryInterface      $responseFactory
      * @param CallableResolverInterface     $callableResolver
      * @param ContainerInterface|null       $container
      * @param InvocationStrategyInterface   $defaultInvocationStrategy
-     * @param RouteParser                   $parser
+     * @param RouteParser                   $routeParser
      */
     public function __construct(
         ResponseFactoryInterface $responseFactory,
         CallableResolverInterface $callableResolver,
         ContainerInterface $container = null,
         InvocationStrategyInterface $defaultInvocationStrategy = null,
-        RouteParser $parser = null
+        RouteParser $routeParser = null
     ) {
         $this->responseFactory = $responseFactory;
         $this->callableResolver = $callableResolver;
         $this->container = $container;
         $this->defaultInvocationStrategy = $defaultInvocationStrategy ?? new RequestResponse();
-        $this->routeParser = $parser ?? new StdParser;
+        $this->routeParser = $routeParser ?? new Std();
     }
 
     /**
@@ -166,11 +157,19 @@ class Router implements RouterInterface
      *
      * @return self
      */
-    public function setBasePath(string $basePath): self
+    public function setBasePath(string $basePath): RouteCollectorInterface
     {
         $this->basePath = $basePath;
 
         return $this;
+    }
+
+    /**
+     * @return null|string
+     */
+    public function getCacheFile(): ?string
+    {
+        return $this->cacheFile;
     }
 
     /**
@@ -182,7 +181,7 @@ class Router implements RouterInterface
      * @throws InvalidArgumentException
      * @throws RuntimeException
      */
-    public function setCacheFile(?string $cacheFile): RouterInterface
+    public function setCacheFile(?string $cacheFile): RouteCollectorInterface
     {
         $this->cacheFile = $cacheFile;
 
@@ -218,19 +217,6 @@ class Router implements RouterInterface
     }
 
     /**
-     * Dispatch router for HTTP request
-     *
-     * @param  ServerRequestInterface $request The current HTTP request object
-     *
-     * @return RoutingResults
-     */
-    public function dispatch(ServerRequestInterface $request): RoutingResults
-    {
-        $uri = '/' . ltrim(rawurldecode($request->getUri()->getPath()), '/');
-        return $this->createDispatcher()->dispatch($request->getMethod(), $uri);
-    }
-
-    /**
      * Create a new Route object
      *
      * @param  string[] $methods Array of HTTP methods
@@ -252,48 +238,6 @@ class Router implements RouterInterface
             $this->routeGroups,
             $this->routeCounter
         );
-    }
-
-    /**
-     * @return Dispatcher
-     */
-    protected function createDispatcher(): Dispatcher
-    {
-        if ($this->dispatcher) {
-            return $this->dispatcher;
-        }
-
-        $routeDefinitionCallback = function (RouteCollector $r) {
-            foreach ($this->getRoutes() as $route) {
-                $r->addRoute($route->getMethods(), $route->getPattern(), $route->getIdentifier());
-            }
-        };
-
-        if ($this->cacheFile) {
-            /** @var Dispatcher $dispatcher */
-            $dispatcher = \FastRoute\cachedDispatcher($routeDefinitionCallback, [
-                'dispatcher' => Dispatcher::class,
-                'routeParser' => $this->routeParser,
-                'cacheFile' => $this->cacheFile,
-            ]);
-        } else {
-            /** @var Dispatcher $dispatcher */
-            $dispatcher = \FastRoute\simpleDispatcher($routeDefinitionCallback, [
-                'dispatcher' => Dispatcher::class,
-                'routeParser' => $this->routeParser,
-            ]);
-        }
-
-        $this->dispatcher = $dispatcher;
-        return $this->dispatcher;
-    }
-
-    /**
-     * @param Dispatcher $dispatcher
-     */
-    public function setDispatcher(Dispatcher $dispatcher)
-    {
-        $this->dispatcher = $dispatcher;
     }
 
     /**
@@ -329,14 +273,16 @@ class Router implements RouterInterface
      * Remove named route
      *
      * @param string $name        Route name
+     * @return RouteCollectorInterface
      *
      * @throws RuntimeException   If named route does not exist
      */
-    public function removeNamedRoute(string $name)
+    public function removeNamedRoute(string $name): RouteCollectorInterface
     {
         /** @var Route $route */
         $route = $this->getNamedRoute($name);
         unset($this->routes[$route->getIdentifier()]);
+        return $this;
     }
 
     /**
@@ -454,7 +400,6 @@ class Router implements RouterInterface
         return $url;
     }
 
-
     /**
      * Build the path for a named route including the base path
      *
@@ -496,30 +441,5 @@ class Router implements RouterInterface
     {
         trigger_error('urlFor() is deprecated. Use pathFor() instead.', E_USER_DEPRECATED);
         return $this->pathFor($name, $data, $queryParams);
-    }
-
-    /**
-     * The router is reqgistered as (final) request handle (the tip) of the
-     * middleware stack. It will be executed
-     * last and it detects whether or not routing has been performed in the user
-     * defined middleware stack. In the event that the user did not perform routing
-     * it is done here
-     *
-     * @param ServerRequestInterface $request
-     * @return ResponseInterface
-     * @throws HttpNotFoundException
-     * @throws HttpMethodNotAllowedException
-     */
-    public function handle(ServerRequestInterface $request): ResponseInterface
-    {
-        // If routing hasn't been done, then do it now so we can dispatch
-        if ($request->getAttribute('routingResults') === null) {
-            $routingMiddleware = new RoutingMiddleware($this);
-            $request = $routingMiddleware->performRouting($request);
-        }
-
-        /** @var Route $route */
-        $route = $request->getAttribute('route');
-        return $route->run($request);
     }
 }

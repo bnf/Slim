@@ -11,7 +11,6 @@ declare(strict_types=1);
 
 namespace Slim;
 
-use Closure;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -19,11 +18,12 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use RuntimeException;
 use Slim\Interfaces\CallableResolverInterface;
+use Slim\Interfaces\RouteCollectorInterface;
 use Slim\Interfaces\RouteGroupInterface;
 use Slim\Interfaces\RouteInterface;
-use Slim\Interfaces\RouterInterface;
+use Slim\Interfaces\RouteResolverInterface;
+use Slim\Middleware\RoutingMiddleware;
 
 /**
  * App
@@ -59,14 +59,24 @@ class App implements RequestHandlerInterface
     protected $middlewareDispatcher;
 
     /**
-     * @var RouterInterface
+     * @var RouteCollectorInterface
      */
-    protected $router;
+    protected $routeCollector;
+
+    /**
+     * @var RouteResolverInterface
+     */
+    protected $routeResolver;
 
     /**
      * @var ResponseFactoryInterface
      */
     protected $responseFactory;
+
+    /**
+     * @var bool
+     */
+    protected $hasRoutingMiddlewareBeenAdded;
 
     /**
      * @var array
@@ -87,25 +97,30 @@ class App implements RequestHandlerInterface
      * @param ContainerInterface|null   $container
      * @param array                     $settings
      * @param CallableResolverInterface $callableResolver
-     * @param RouterInterface           $router
+     * @param RouteCollectorInterface   $routeCollector
+     * @param RouteResolverInterface    $routeResolver
      */
     public function __construct(
         ResponseFactoryInterface $responseFactory,
         ContainerInterface $container = null,
         array $settings = [],
         CallableResolverInterface $callableResolver = null,
-        RouterInterface $router = null
+        RouteCollectorInterface $routeCollector = null,
+        RouteResolverInterface $routeResolver = null
     ) {
         $this->responseFactory = $responseFactory;
         $this->container = $container;
         $this->callableResolver = $callableResolver ?? new CallableResolver($container);
         $this->addSettings($settings);
 
-        $this->router = $router ?? new Router($responseFactory, $this->callableResolver, $this->container);
+        $this->routeCollector = $routeCollector ?? new RouteCollector($responseFactory, $this->callableResolver, $this->container);
         $routerCacheFile = $this->getSetting('routerCacheFile', null);
-        $this->router->setCacheFile($routerCacheFile);
+        $this->routeCollector->setCacheFile($routerCacheFile);
 
-        $this->middlewareDispatcher = new MiddlewareDispatcher($this->router, $container);
+        $this->routeResolver = $routeResolver ?? new RouteResolver($this->routeCollector);
+
+        $routeRunner = new RouteRunner($this->routeResolver);
+        $this->middlewareDispatcher = new MiddlewareDispatcher($routeRunner, $container);
     }
 
     /**
@@ -114,6 +129,10 @@ class App implements RequestHandlerInterface
      */
     public function add($middleware): self
     {
+        if ($middleware instanceof RoutingMiddleware) {
+            $this->hasRoutingMiddlewareBeenAdded = true;
+        }
+
         $this->middlewareDispatcher->add($middleware);
         return $this;
     }
@@ -124,6 +143,10 @@ class App implements RequestHandlerInterface
      */
     public function addMiddleware(MiddlewareInterface $middleware): self
     {
+        if ($middleware instanceof RoutingMiddleware) {
+            $this->hasRoutingMiddlewareBeenAdded = true;
+        }
+
         $this->middlewareDispatcher->addMiddleware($middleware);
         return $this;
     }
@@ -211,13 +234,23 @@ class App implements RequestHandlerInterface
     }
 
     /**
-     * Get router
+     * Get Route Collector
      *
-     * @return RouterInterface
+     * @return RouteCollectorInterface
      */
-    public function getRouter(): RouterInterface
+    public function getRouteCollector(): RouteCollectorInterface
     {
-        return $this->router;
+        return $this->routeCollector;
+    }
+
+    /**
+     * Get Route Resolver
+     *
+     * @return RouteResolverInterface
+     */
+    public function getRouteResolver(): RouteResolverInterface
+    {
+        return $this->routeResolver;
     }
 
     /********************************************************************************
@@ -331,8 +364,8 @@ class App implements RequestHandlerInterface
             $callable = $callable->bindTo($this->container);
         }
 
-        /** @var Router $router */
-        $router = $this->getRouter();
+        /** @var RouteCollector $router */
+        $router = $this->getRouteCollector();
         $route = $router->map($methods, $pattern, $callable);
 
         return $route;
@@ -370,9 +403,9 @@ class App implements RequestHandlerInterface
      */
     public function group(string $pattern, $callable): RouteGroupInterface
     {
-        $group = $this->router->pushGroup($pattern, $callable);
+        $group = $this->routeCollector->pushGroup($pattern, $callable);
         $group($this);
-        $this->router->popGroup();
+        $this->routeCollector->popGroup();
         return $group;
     }
 
@@ -406,6 +439,13 @@ class App implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        /**
+         * Check if RoutingMiddleware has been added
+         */
+        if (!$this->hasRoutingMiddlewareBeenAdded) {
+            $this->addMiddleware(new RoutingMiddleware($this->routeResolver));
+        }
+
         $response = $this->middlewareDispatcher->handle($request);
 
         /**

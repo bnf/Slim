@@ -1,29 +1,17 @@
 <?php
-/**
- * Slim Framework (https://slimframework.com)
- *
- * @link      https://github.com/slimphp/Slim
- * @copyright Copyright (c) 2011-2018 Josh Lockhart
- * @license   https://github.com/slimphp/Slim/blob/4.x/LICENSE.md (MIT License)
- */
-
 declare(strict_types=1);
 
 namespace Slim\Interfaces;
 
 use InvalidArgumentException;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 use RuntimeException;
-use Slim\RoutingResults;
+use Slim\Route;
 
 /**
- * Router Interface
- *
- * @package Slim
- * @since   3.0.0
+ * Interface RouteCollectorInterface
+ * @package Slim\Interfaces
  */
-interface RouterInterface extends RequestHandlerInterface
+interface RouteCollectorInterface
 {
     /**
      * Add route
@@ -35,17 +23,6 @@ interface RouterInterface extends RequestHandlerInterface
      * @return RouteInterface
      */
     public function map(array $methods, string $pattern, $handler): RouteInterface;
-
-    /**
-     * Dispatch router for HTTP request
-     *
-     * @param  ServerRequestInterface $request The current HTTP request object
-     *
-     * @return RoutingResults
-     *
-     * @link   https://github.com/nikic/FastRoute/blob/master/src/Dispatcher.php
-     */
-    public function dispatch(ServerRequestInterface $request): RoutingResults;
 
     /**
      * Add a route group to the array
@@ -65,6 +42,13 @@ interface RouterInterface extends RequestHandlerInterface
     public function popGroup();
 
     /**
+     * Get route objects
+     *
+     * @return Route[]
+     */
+    public function getRoutes(): array;
+
+    /**
      * Get named route object
      *
      * @param string $name        Route name
@@ -74,6 +58,16 @@ interface RouterInterface extends RequestHandlerInterface
      * @throws RuntimeException   If named route does not exist
      */
     public function getNamedRoute(string $name): RouteInterface;
+
+    /**
+     * Remove named route
+     *
+     * @param string $name        Route name
+     * @return RouteCollectorInterface
+     *
+     * @throws RuntimeException   If named route does not exist
+     */
+    public function removeNamedRoute(string $name): RouteCollectorInterface;
 
     /**
      * @param string $identifier
@@ -111,10 +105,29 @@ interface RouterInterface extends RequestHandlerInterface
     public function pathFor(string $name, array $data = [], array $queryParams = []): string;
 
     /**
-     * @param string|null $cacheFile
-     * @return RouterInterface
+     * Build the path for a named route.
+     *
+     * This method is deprecated. Use pathFor() from now on.
+     *
+     * @param string $name        Route name
+     * @param array  $data        Named argument replacement data
+     * @param array  $queryParams Optional query string parameters
+     *
+     * @return string
+     *
+     * @throws RuntimeException         If named route does not exist
+     * @throws InvalidArgumentException If required data not provided
      */
-    public function setCacheFile(?string $cacheFile): RouterInterface;
+    public function urlFor(string $name, array $data = [], array $queryParams = []): string;
+
+    /**
+     * Set the base path used in pathFor()
+     *
+     * @param string $basePath
+     *
+     * @return RouteCollectorInterface
+     */
+    public function setBasePath(string $basePath): RouteCollectorInterface;
 
     /**
      * Set default route invocation strategy
@@ -122,4 +135,20 @@ interface RouterInterface extends RequestHandlerInterface
      * @param InvocationStrategyInterface $strategy
      */
     public function setDefaultInvocationStrategy(InvocationStrategyInterface $strategy);
+
+    /**
+     * @return null|string
+     */
+    public function getCacheFile(): ?string;
+
+    /**
+     * Set path to fast route cache file. If this is false then route caching is disabled.
+     *
+     * @param string|null $cacheFile
+     * @return self
+     *
+     * @throws InvalidArgumentException
+     * @throws RuntimeException
+     */
+    public function setCacheFile(?string $cacheFile): RouteCollectorInterface;
 }
