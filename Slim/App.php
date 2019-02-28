@@ -129,10 +129,6 @@ class App implements RequestHandlerInterface
      */
     public function add($middleware): self
     {
-        if ($middleware instanceof RoutingMiddleware) {
-            $this->hasRoutingMiddlewareBeenAdded = true;
-        }
-
         $this->middlewareDispatcher->add($middleware);
         return $this;
     }
@@ -143,10 +139,6 @@ class App implements RequestHandlerInterface
      */
     public function addMiddleware(MiddlewareInterface $middleware): self
     {
-        if ($middleware instanceof RoutingMiddleware) {
-            $this->hasRoutingMiddlewareBeenAdded = true;
-        }
-
         $this->middlewareDispatcher->addMiddleware($middleware);
         return $this;
     }
@@ -439,13 +431,6 @@ class App implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        /**
-         * Check if RoutingMiddleware has been added
-         */
-        if (!$this->hasRoutingMiddlewareBeenAdded) {
-            $this->addMiddleware(new RoutingMiddleware($this->routeResolver));
-        }
-
         $response = $this->middlewareDispatcher->handle($request);
 
         /**
