@@ -8,26 +8,29 @@
  */
 namespace Slim\Tests;
 
-use FastRoute\RouteCollector;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use Slim\CallableResolver;
 use Slim\Dispatcher;
+use Slim\Interfaces\RouteCollectorInterface;
 use Slim\Interfaces\RouteInterface;
 use Slim\Route;
-use Slim\Router;
+use Slim\RouteCollector;
+use Slim\RouteResolver;
 use Slim\RoutingResults;
 use Slim\Tests\Mocks\InvocationStrategyTest;
 
-class RouterTest extends TestCase
+class RouteCollectorTest extends TestCase
 {
-    /** @var Router */
-    protected $router;
+    /** @var RouteCollectorInterface */
+    protected $routeCollector;
 
     public function setUp()
     {
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
-        $this->router = new Router($responseFactory, $callableResolver);
+        $this->routeCollector = new RouteCollector($responseFactory, $callableResolver);
     }
 
     public function testMap()
@@ -37,10 +40,10 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
 
         $this->assertInstanceOf(RouteInterface::class, $route);
-        $this->assertAttributeContains($route, 'routes', $this->router);
+        $this->assertAttributeContains($route, 'routes', $this->routeCollector);
     }
 
     public function testMapPrependsGroupPattern()
@@ -51,10 +54,10 @@ class RouterTest extends TestCase
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
 
-        $this->router->pushGroup('/prefix', function () {
+        $this->routeCollector->pushGroup('/prefix', function () {
         });
-        $route = $this->router->map($methods, $pattern, $callable);
-        $this->router->popGroup();
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
+        $this->routeCollector->popGroup();
 
         $this->assertAttributeEquals('/prefix/hello/{first}/{last}', 'pattern', $route);
     }
@@ -64,37 +67,37 @@ class RouterTest extends TestCase
      */
     public function testRelativePathFor()
     {
-        $this->router->setBasePath('/base/path');
+        $this->routeCollector->setBasePath('/base/path');
 
         $methods = ['GET'];
         $pattern = '/hello/{first:\w+}/{last}';
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
         $this->assertEquals(
             '/hello/josh/lockhart',
-            $this->router->relativePathFor('foo', ['first' => 'josh', 'last' => 'lockhart'])
+            $this->routeCollector->relativePathFor('foo', ['first' => 'josh', 'last' => 'lockhart'])
         );
     }
 
     public function testPathForWithNoBasePath()
     {
-        $this->router->setBasePath('');
+        $this->routeCollector->setBasePath('');
 
         $methods = ['GET'];
         $pattern = '/hello/{first:\w+}/{last}';
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
         $this->assertEquals(
             '/hello/josh/lockhart',
-            $this->router->pathFor('foo', ['first' => 'josh', 'last' => 'lockhart'])
+            $this->routeCollector->pathFor('foo', ['first' => 'josh', 'last' => 'lockhart'])
         );
     }
 
@@ -105,13 +108,13 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $this->router->setBasePath('/base/path');
-        $route = $this->router->map($methods, $pattern, $callable);
+        $this->routeCollector->setBasePath('/base/path');
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
         $this->assertEquals(
             '/base/path/hello/josh/lockhart',
-            $this->router->pathFor('foo', ['first' => 'josh', 'last' => 'lockhart'])
+            $this->routeCollector->pathFor('foo', ['first' => 'josh', 'last' => 'lockhart'])
         );
     }
 
@@ -122,20 +125,20 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             return $response;
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
         $this->assertEquals(
             '/archive/2015',
-            $this->router->pathFor('foo', ['year' => '2015'])
+            $this->routeCollector->pathFor('foo', ['year' => '2015'])
         );
         $this->assertEquals(
             '/archive/2015/07',
-            $this->router->pathFor('foo', ['year' => '2015', 'month' => '07'])
+            $this->routeCollector->pathFor('foo', ['year' => '2015', 'month' => '07'])
         );
         $this->assertEquals(
             '/archive/2015/07/d/19',
-            $this->router->pathFor('foo', ['year' => '2015', 'month' => '07', 'day' => '19'])
+            $this->routeCollector->pathFor('foo', ['year' => '2015', 'month' => '07', 'day' => '19'])
         );
     }
 
@@ -146,12 +149,12 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s', $args['name']);
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
         $this->assertEquals(
             '/hello/josh?a=b&c=d',
-            $this->router->pathFor('foo', ['name' => 'josh'], ['a' => 'b', 'c' => 'd'])
+            $this->routeCollector->pathFor('foo', ['name' => 'josh'], ['a' => 'b', 'c' => 'd'])
         );
     }
 
@@ -165,10 +168,10 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
-        $this->router->pathFor('foo', ['last' => 'lockhart']);
+        $this->routeCollector->pathFor('foo', ['last' => 'lockhart']);
     }
 
     /**
@@ -181,32 +184,10 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
 
-        $this->router->pathFor('bar', ['first' => 'josh', 'last' => 'lockhart']);
-    }
-
-    public function testCreateDispatcher()
-    {
-        $class = new ReflectionClass($this->router);
-        $method = $class->getMethod('createDispatcher');
-        $method->setAccessible(true);
-        $this->assertInstanceOf(Dispatcher::class, $method->invoke($this->router));
-    }
-
-    public function testSetDispatcher()
-    {
-        /** @var Dispatcher $dispatcher */
-        $dispatcher = \FastRoute\simpleDispatcher(function (RouteCollector $r) {
-        }, ['dispatcher' => Dispatcher::class]);
-        $this->router->setDispatcher($dispatcher);
-
-        $class = new ReflectionClass($this->router);
-        $prop = $class->getProperty('dispatcher');
-        $prop->setAccessible(true);
-
-        $this->assertEquals($dispatcher, $prop->getValue($this->router));
+        $this->routeCollector->pathFor('bar', ['first' => 'josh', 'last' => 'lockhart']);
     }
 
     public function testGetRouteInvocationStrategy()
@@ -214,18 +195,18 @@ class RouterTest extends TestCase
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
         $invocationStrategy = new InvocationStrategyTest();
-        $router = new Router($responseFactory, $callableResolver, null, $invocationStrategy);
+        $routeCollector = new RouteCollector($responseFactory, $callableResolver, null, $invocationStrategy);
 
-        $this->assertEquals($invocationStrategy, $router->getDefaultInvocationStrategy());
+        $this->assertEquals($invocationStrategy, $routeCollector->getDefaultInvocationStrategy());
     }
 
     public function testGetCallableResolver()
     {
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
-        $router = new Router($responseFactory, $callableResolver);
+        $routeCollector = new RouteCollector($responseFactory, $callableResolver);
 
-        $this->assertEquals($callableResolver, $router->getCallableResolver());
+        $this->assertEquals($callableResolver, $routeCollector->getCallableResolver());
     }
 
     /**
@@ -238,25 +219,25 @@ class RouterTest extends TestCase
             echo sprintf('Hello ignore me');
         };
 
-        $this->router->setBasePath('/base/path');
+        $this->routeCollector->setBasePath('/base/path');
 
-        $route1 = $this->router->map($methods, '/foo', $callable);
+        $route1 = $this->routeCollector->map($methods, '/foo', $callable);
         $route1->setName('foo');
 
-        $route2 = $this->router->map($methods, '/bar', $callable);
+        $route2 = $this->routeCollector->map($methods, '/bar', $callable);
         $route2->setName('bar');
 
-        $route3 = $this->router->map($methods, '/fizz', $callable);
+        $route3 = $this->routeCollector->map($methods, '/fizz', $callable);
         $route3->setName('fizz');
 
-        $route4 = $this->router->map($methods, '/buzz', $callable);
+        $route4 = $this->routeCollector->map($methods, '/buzz', $callable);
         $route4->setName('buzz');
 
-        $routeToRemove = $this->router->getNamedRoute('fizz');
+        $routeToRemove = $this->routeCollector->getNamedRoute('fizz');
 
-        $routeCountBefore = count($this->router->getRoutes());
-        $this->router->removeNamedRoute($routeToRemove->getName());
-        $routeCountAfter = count($this->router->getRoutes());
+        $routeCountBefore = count($this->routeCollector->getRoutes());
+        $this->routeCollector->removeNamedRoute($routeToRemove->getName());
+        $routeCountAfter = count($this->routeCollector->getRoutes());
 
         // Assert number of routes is now less by 1
         $this->assertEquals(
@@ -266,22 +247,22 @@ class RouterTest extends TestCase
 
         // Simple test that the correct route was removed
         $this->assertEquals(
-            $this->router->getNamedRoute('foo')->getName(),
+            $this->routeCollector->getNamedRoute('foo')->getName(),
             'foo'
         );
 
         $this->assertEquals(
-            $this->router->getNamedRoute('bar')->getName(),
+            $this->routeCollector->getNamedRoute('bar')->getName(),
             'bar'
         );
 
         $this->assertEquals(
-            $this->router->getNamedRoute('buzz')->getName(),
+            $this->routeCollector->getNamedRoute('buzz')->getName(),
             'buzz'
         );
 
         // Exception thrown here, route no longer exists
-        $this->router->getNamedRoute($routeToRemove->getName());
+        $this->routeCollector->getNamedRoute($routeToRemove->getName());
     }
 
     /**
@@ -289,13 +270,13 @@ class RouterTest extends TestCase
      */
     public function testRouteRemovalNotExists()
     {
-        $this->router->setBasePath('/base/path');
-        $this->router->removeNamedRoute('non-existing-route-name');
+        $this->routeCollector->setBasePath('/base/path');
+        $this->routeCollector->removeNamedRoute('non-existing-route-name');
     }
 
     public function testPathForWithModifiedRoutePattern()
     {
-        $this->router->setBasePath('/base/path');
+        $this->routeCollector->setBasePath('/base/path');
 
         $methods = ['GET'];
         $pattern = '/hello/{first:\w+}/{last}';
@@ -304,13 +285,13 @@ class RouterTest extends TestCase
         };
 
         /** @var Route $route */
-        $route = $this->router->map($methods, $pattern, $callable);
+        $route = $this->routeCollector->map($methods, $pattern, $callable);
         $route->setName('foo');
         $route->setPattern('/hallo/{voornaam:\w+}/{achternaam}');
 
         $this->assertEquals(
             '/hallo/josh/lockhart',
-            $this->router->relativePathFor('foo', ['voornaam' => 'josh', 'achternaam' => 'lockhart'])
+            $this->routeCollector->relativePathFor('foo', ['voornaam' => 'josh', 'achternaam' => 'lockhart'])
         );
     }
 
@@ -322,7 +303,7 @@ class RouterTest extends TestCase
      */
     public function testSettingInvalidCacheFileNotExisting()
     {
-        $this->router->setCacheFile(
+        $this->routeCollector->setCacheFile(
             dirname(__FILE__) . uniqid(microtime(true)) . '/' . uniqid(microtime(true))
         );
     }
@@ -337,30 +318,33 @@ class RouterTest extends TestCase
         $callable = function ($request, $response, $args) {
             echo sprintf('Hello %s %s', $args['first'], $args['last']);
         };
-        $route = $this->router->map($methods, $pattern, $callable)->setName('foo');
+        $this->routeCollector->map($methods, $pattern, $callable)->setName('foo');
 
         $cacheFile = dirname(__FILE__) . '/' . uniqid(microtime(true));
-        $this->router->setCacheFile($cacheFile);
-        $class = new ReflectionClass($this->router);
+        $this->routeCollector->setCacheFile($cacheFile);
+
+        $routeResolver = new RouteResolver($this->routeCollector);
+        $class = new ReflectionClass(RouteResolver::class);
         $method = $class->getMethod('createDispatcher');
         $method->setAccessible(true);
 
-        $dispatcher = $method->invoke($this->router);
+        $dispatcher = $method->invoke($routeResolver);
         $this->assertInstanceOf(Dispatcher::class, $dispatcher);
         $this->assertFileExists($cacheFile, 'cache file was not created');
 
-        // instantiate a new router & load the cached routes file & see if
+        // instantiate a new routeCollector & load the cached routes file & see if
         // we can dispatch to the route we cached.
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
-        $router2 = new Router($responseFactory, $callableResolver);
-        $router2->setCacheFile($cacheFile);
+        $routeCollector2 = new RouteCollector($responseFactory, $callableResolver);
+        $routeCollector2->setCacheFile($cacheFile);
+        $routeResolver2 = new RouteResolver($routeCollector2);
 
-        $class = new ReflectionClass($router2);
+        $class = new ReflectionClass($routeResolver2);
         $method = $class->getMethod('createDispatcher');
         $method->setAccessible(true);
 
-        $dispatcher2 = $method->invoke($this->router);
+        $dispatcher2 = $method->invoke($routeResolver2);
 
         /** @var RoutingResults $result */
         $result = $dispatcher2->dispatch('GET', '/hello/josh/lockhart');
@@ -370,22 +354,7 @@ class RouterTest extends TestCase
     }
 
     /**
-     * Calling createDispatcher as second time should give you back the same
-     * dispatcher as when you called it the first time.
-     */
-    public function testCreateDispatcherReturnsSameDispatcherASecondTime()
-    {
-        $class = new ReflectionClass($this->router);
-        $method = $class->getMethod('createDispatcher');
-        $method->setAccessible(true);
-
-        $dispatcher = $method->invoke($this->router);
-        $dispatcher2 = $method->invoke($this->router);
-        $this->assertSame($dispatcher2, $dispatcher);
-    }
-
-    /**
-     * Test that the router urlFor will proxy into a pathFor method, and trigger
+     * Test that the routeCollector urlFor will proxy into a pathFor method, and trigger
      * the user deprecated warning
      */
     public function testUrlForAliasesPathFor()
@@ -402,14 +371,15 @@ class RouterTest extends TestCase
         $data = ['name' => 'josh'];
         $queryParams = ['a' => 'b', 'c' => 'd'];
 
-        /** @var Router $router */
-        $router = $this
-            ->getMockBuilder(Router::class)
+        $routeCollector = $this
+            ->getMockBuilder(RouteCollector::class)
             ->setConstructorArgs([$this->getResponseFactory(), new CallableResolver()])
             ->setMethods(['pathFor'])
             ->getMock();
-        $router->expects($this->once())->method('pathFor')->with($name, $data, $queryParams);
-        $router->urlFor($name, $data, $queryParams);
+        $routeCollector->expects($this->once())->method('pathFor')->with($name, $data, $queryParams);
+
+        /** @var RouteCollectorInterface $routeCollector */
+        $routeCollector->urlFor($name, $data, $queryParams);
 
         //check that our error was triggered
         $this->assertEquals($errorString, 'urlFor() is deprecated. Use pathFor() instead.');
@@ -422,6 +392,6 @@ class RouterTest extends TestCase
      */
     public function testLookupRouteThrowsExceptionIfRouteNotFound()
     {
-        $this->router->lookupRoute("thisIsMissing");
+        $this->routeCollector->lookupRoute("thisIsMissing");
     }
 }

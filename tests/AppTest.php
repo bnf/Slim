@@ -14,14 +14,14 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use ReflectionClass;
 use Slim\App;
 use Slim\CallableResolver;
 use Slim\Error\Renderers\HtmlErrorRenderer;
 use Slim\Exception\HttpMethodNotAllowedException;
 use Slim\Handlers\Strategies\RequestResponseArgs;
 use Slim\Route;
-use Slim\Router;
+use Slim\RouteCollector;
+use Slim\RoutingResults;
 use Slim\Tests\Mocks\MockAction;
 use Slim\Tests\Mocks\MockMiddleware;
 use Slim\Tests\Mocks\MockMiddlewareWithoutInterface;
@@ -58,16 +58,16 @@ class AppTest extends TestCase
         $this->assertEquals($callableResolver, $app->getCallableResolver());
     }
 
-    public function testGetRouter()
+    public function testGetRouteCollector()
     {
         $pimple = new Pimple();
         $container = new Psr11Container($pimple);
         $callableResolver = new CallableResolver($container);
         $responseFactory = $this->getResponseFactory();
-        $router = new Router($responseFactory, $callableResolver, $container);
+        $routeCollector = new RouteCollector($responseFactory, $callableResolver, $container);
         $app = new App($responseFactory, $container);
 
-        $this->assertEquals($router, $app->getRouter());
+        $this->assertEquals($routeCollector, $app->getRouteCollector());
     }
 
     /********************************************************************************
@@ -128,7 +128,7 @@ class AppTest extends TestCase
     }
 
     /********************************************************************************
-     * Router proxy methods
+     * RouteCollector proxy methods
      *******************************************************************************/
 
     public function testGetRoute()
@@ -285,7 +285,7 @@ class AppTest extends TestCase
         $this->assertEquals($destination, $response->getHeaderLine('Location'));
 
         $routeWithDefaultStatus = $app->redirect($source, $destination);
-        $response = $routeWithDefaultStatus->run($this->createServerRequest($source), $this->createResponse());
+        $response = $routeWithDefaultStatus->run($this->createServerRequest($source));
         $this->assertEquals(302, $response->getStatusCode());
 
         $uri = $this->getMockBuilder(UriInterface::class)->getMock();
@@ -324,8 +324,8 @@ class AppTest extends TestCase
             // Do something
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testSegmentRouteThatEndsInASlash()
@@ -336,8 +336,8 @@ class AppTest extends TestCase
             // Do something
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testSegmentRouteThatDoesNotStartWithASlash()
@@ -348,8 +348,8 @@ class AppTest extends TestCase
             // Do something
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('foo', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('foo', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testSingleSlashRoute()
@@ -360,8 +360,8 @@ class AppTest extends TestCase
             // Do something
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyRoute()
@@ -372,8 +372,8 @@ class AppTest extends TestCase
             // Do something
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     /********************************************************************************
@@ -400,8 +400,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithSegmentRouteThatEndsInASlash()
@@ -414,8 +414,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/bar/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/bar/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithSingleSlashRoute()
@@ -428,8 +428,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithEmptyRoute()
@@ -442,8 +442,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testTwoGroupSegmentsWithSingleSlashRoute()
@@ -458,8 +458,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/baz/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/baz/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testTwoGroupSegmentsWithAnEmptyRoute()
@@ -474,8 +474,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/baz', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/baz', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testTwoGroupSegmentsWithSegmentRoute()
@@ -490,8 +490,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/baz/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/baz/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testTwoGroupSegmentsWithSegmentRouteThatHasATrailingSlash()
@@ -506,8 +506,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/baz/bar/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/baz/bar/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithSingleSlashNestedGroupAndSegmentRoute()
@@ -522,8 +522,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo//bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo//bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithSingleSlashGroupAndSegmentRouteWithoutLeadingSlash()
@@ -538,8 +538,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithEmptyNestedGroupAndSegmentRoute()
@@ -554,8 +554,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foo/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foo/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSegmentWithEmptyNestedGroupAndSegmentRouteWithoutLeadingSlash()
@@ -570,8 +570,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/foobar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/foobar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithSegmentRouteThatDoesNotEndInASlash()
@@ -584,8 +584,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithSegmentRouteThatEndsInASlash()
@@ -598,8 +598,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//bar/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//bar/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithSingleSlashRoute()
@@ -612,8 +612,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithEmptyRoute()
@@ -626,8 +626,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithNestedGroupSegmentWithSingleSlashRoute()
@@ -642,8 +642,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//baz/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//baz/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithNestedGroupSegmentWithAnEmptyRoute()
@@ -658,8 +658,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//baz', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//baz', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithNestedGroupSegmentWithSegmentRoute()
@@ -674,8 +674,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//baz/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//baz/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithNestedGroupSegmentWithSegmentRouteThatHasATrailingSlash()
@@ -690,8 +690,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//baz/bar/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//baz/bar/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithSingleSlashNestedGroupAndSegmentRoute()
@@ -706,8 +706,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('///bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('///bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithSingleSlashGroupAndSegmentRouteWithoutLeadingSlash()
@@ -722,8 +722,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithEmptyNestedGroupAndSegmentRoute()
@@ -738,8 +738,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testGroupSingleSlashWithEmptyNestedGroupAndSegmentRouteWithoutLeadingSlash()
@@ -754,8 +754,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithSegmentRouteThatDoesNotEndInASlash()
@@ -768,8 +768,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithSegmentRouteThatEndsInASlash()
@@ -782,8 +782,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/bar/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/bar/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithSingleSlashRoute()
@@ -796,8 +796,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithEmptyRoute()
@@ -810,8 +810,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithNestedGroupSegmentWithSingleSlashRoute()
@@ -826,8 +826,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/baz/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/baz/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithNestedGroupSegmentWithAnEmptyRoute()
@@ -842,8 +842,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/baz', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/baz', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithNestedGroupSegmentWithSegmentRoute()
@@ -858,8 +858,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/baz/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/baz/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithNestedGroupSegmentWithSegmentRouteThatHasATrailingSlash()
@@ -874,8 +874,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/baz/bar/', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/baz/bar/', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithSingleSlashNestedGroupAndSegmentRoute()
@@ -890,8 +890,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('//bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('//bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithSingleSlashGroupAndSegmentRouteWithoutLeadingSlash()
@@ -906,8 +906,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithEmptyNestedGroupAndSegmentRoute()
@@ -922,8 +922,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('/bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('/bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     public function testEmptyGroupWithEmptyNestedGroupAndSegmentRouteWithoutLeadingSlash()
@@ -938,8 +938,8 @@ class AppTest extends TestCase
             });
         });
 
-        $router = $app->getRouter();
-        $this->assertAttributeEquals('bar', 'pattern', $router->lookupRoute('route0'));
+        $routeCollector = $app->getRouteCollector();
+        $this->assertAttributeEquals('bar', 'pattern', $routeCollector->lookupRoute('route0'));
     }
 
     /********************************************************************************
@@ -965,6 +965,10 @@ class AppTest extends TestCase
 
         $this->assertSame($called, 1);
     }
+
+    /********************************************************************************
+     * Middleware
+     *******************************************************************************/
 
     public function testAddMiddlewareUsingDeferredResolution()
     {
@@ -1252,7 +1256,7 @@ class AppTest extends TestCase
     {
         $responseFactory = $this->getResponseFactory();
         $app = new App($responseFactory);
-        $app->getRouter()->setDefaultInvocationStrategy(new RequestResponseArgs());
+        $app->getRouteCollector()->setDefaultInvocationStrategy(new RequestResponseArgs());
         $app->get('/foo/{name}', function (ServerRequestInterface $request, ResponseInterface $response, $name) {
             $response->getBody()->write("Hello {$name}");
             return $response;
@@ -1279,6 +1283,25 @@ class AppTest extends TestCase
 
         $this->assertInstanceOf(ResponseInterface::class, $response);
         $this->assertEquals('Hello there test!', (string)$response->getBody());
+    }
+
+    public function testRoutingIsPerformedIfRoutingResultsAreUnavailable()
+    {
+        $handler = (function (ServerRequestInterface $request, ResponseInterface $response) {
+            $routingResults = $request->getAttribute('routingResults');
+            $this->assertInstanceOf(RoutingResults::class, $routingResults);
+            return $response;
+        })->bindTo($this);
+
+        $callableResolver = new CallableResolver();
+        $responseFactory = $this->getResponseFactory();
+        $routeCollector = new RouteCollector($responseFactory, $callableResolver);
+        $routeCollector->map(['GET'], '/hello/{name}', $handler);
+
+        $request = $this->createServerRequest('https://example.com:443/hello/foo', 'GET');
+
+        $app = new App($responseFactory, null, [], $callableResolver, $routeCollector);
+        $app->handle($request);
     }
 
     /**
@@ -1410,7 +1433,7 @@ class AppTest extends TestCase
     {
         $responseFactory = $this->getResponseFactory();
         $app = new App($responseFactory);
-        $app->getRouter()->setDefaultInvocationStrategy(new RequestResponseArgs());
+        $app->getRouteCollector()->setDefaultInvocationStrategy(new RequestResponseArgs());
         $app->get('/foo/{name}', function (ServerRequestInterface $request, ResponseInterface $response, $name) {
             $response->getBody()->write($request->getAttribute('one') . $name);
             return $response;
@@ -1459,6 +1482,10 @@ class AppTest extends TestCase
     {
         $responseFactory = $this->getResponseFactory();
         $app = new App($responseFactory);
+        $app->get('/', function ($request, $response) {
+            return $response;
+        });
+
         $app->add(function (ServerRequestInterface $request) use ($app, $responseFactory) {
             if ($request->hasHeader('X-NESTED')) {
                 return $responseFactory->createResponse(204)->withAddedHeader('X-TRACE', 'nested');
@@ -1498,8 +1525,8 @@ class AppTest extends TestCase
         $responseFactory = $this->getResponseFactory();
         $app = new App($responseFactory, $container);
 
-        $router = $app->getRouter();
-        $router->map(['GET'], '/foo', 'foo:bar');
+        $routeCollector = $app->getRouteCollector();
+        $routeCollector->map(['GET'], '/foo', 'foo:bar');
 
         $request = $this->createServerRequest('/foo');
         $response = $app->handle($request);

@@ -72,7 +72,7 @@ class MiddlewareDispatcher implements RequestHandlerInterface
     /**
      * Add a new middleware to the stack
      *
-     * Middlewares are organized as a stack. That means middlewares
+     * Middleware are organized as a stack. That means middleware
      * that have been added before will be executed after the newly
      * added one (last in, first out).
      *
@@ -97,7 +97,7 @@ class MiddlewareDispatcher implements RequestHandlerInterface
     /**
      * Add a new middleware to the stack
      *
-     * Middlewares are organized as a stack. That means middlewares
+     * Middleware are organized as a stack. That means middleware
      * that have been added before will be executed after the newly
      * added one (last in, first out).
      *
@@ -126,7 +126,7 @@ class MiddlewareDispatcher implements RequestHandlerInterface
     /**
      * Add a new middleware by class name
      *
-     * Middlewares are organized as a stack. That means middlewares
+     * Middleware are organized as a stack. That means middleware
      * that have been added before will be executed after the newly
      * added one (last in, first out).
      *
@@ -176,7 +176,7 @@ class MiddlewareDispatcher implements RequestHandlerInterface
     /**
      * Add a (non standard) callable middleware to the stack
      *
-     * Middlewares are organized as a stack. That means middlewares
+     * Middleware are organized as a stack. That means middleware
      * that have been added before will be executed after the newly
      * added one (last in, first out).
      *

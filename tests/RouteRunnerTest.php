@@ -12,12 +12,12 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\CallableResolver;
 use Slim\MiddlewareDispatcher;
-use Slim\RouteDispatcher;
-use Slim\Router;
+use Slim\RouteCollector;
+use Slim\RouteResolver;
+use Slim\RouteRunner;
 use Slim\RoutingResults;
-use Slim\Tests\TestCase;
 
-class RouteDispatcherTest extends TestCase
+class RouteRunnerTest extends TestCase
 {
     public function testRoutingIsPerformedIfRoutingResultsAreUnavailable()
     {
@@ -29,13 +29,14 @@ class RouteDispatcherTest extends TestCase
 
         $callableResolver = new CallableResolver();
         $responseFactory = $this->getResponseFactory();
-        $router = new Router($responseFactory, $callableResolver);
-        $router->map(['GET'], '/hello/{name}', $handler);
+        $routeCollector = new RouteCollector($responseFactory, $callableResolver);
+        $routeCollector->map(['GET'], '/hello/{name}', $handler);
+        $routeResolver = new RouteResolver($routeCollector);
 
         $request = $this->createServerRequest('https://example.com:443/hello/foo', 'GET');
-        $dispatcher = new RouteDispatcher($router);
+        $routeRunner = new RouteRunner($routeResolver);
 
-        $middlewareDispatcher = new MiddlewareDispatcher($dispatcher);
+        $middlewareDispatcher = new MiddlewareDispatcher($routeRunner);
         $middlewareDispatcher->handle($request);
     }
 }
