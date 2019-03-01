@@ -57,7 +57,7 @@ class RouteResolver implements RouteResolverInterface
      * @param string $method
      * @return RoutingResults
      */
-    public function resolve(string $uri, string $method): RoutingResults
+    public function computeRoutingResults(string $uri, string $method): RoutingResults
     {
         $uri = '/' . ltrim(rawurldecode($uri), '/');
         return $this->createDispatcher()->dispatch($method, $uri);
@@ -67,7 +67,7 @@ class RouteResolver implements RouteResolverInterface
      * @param string $identifier
      * @return RouteInterface
      */
-    public function getRoute(string $identifier): RouteInterface
+    public function resolveRoute(string $identifier): RouteInterface
     {
         return $this->routeCollector->lookupRoute($identifier);
     }

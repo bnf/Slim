@@ -68,14 +68,14 @@ class RoutingMiddleware implements MiddlewareInterface
      */
     public function performRouting(ServerRequestInterface $request): ServerRequestInterface
     {
-        $routingResults = $this->routeResolver->resolve($request->getUri()->getPath(), $request->getMethod());
+        $routingResults = $this->routeResolver->computeRoutingResults($request->getUri()->getPath(), $request->getMethod());
         $routeStatus = $routingResults->getRouteStatus();
 
         switch ($routeStatus) {
             case Dispatcher::FOUND:
                 $routeArguments = $routingResults->getRouteArguments();
                 $routeIdentifier = $routingResults->getRouteIdentifier() ?? '';
-                $route = $this->routeResolver->getRoute($routeIdentifier);
+                $route = $this->routeResolver->resolveRoute($routeIdentifier);
                 $route->prepare($request, $routeArguments);
                 return $request
                     ->withAttribute('route', $route)
