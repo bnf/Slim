@@ -8,8 +8,6 @@
  */
 namespace Slim\Tests;
 
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use Slim\CallableResolver;
 use Slim\Dispatcher;
