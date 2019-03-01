@@ -1147,7 +1147,7 @@ class AppTest extends TestCase
     {
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage(
-            'Middlewares must be an object/class name referencing an implementation of ' .
+            'Middleware must be an object/class name referencing an implementation of ' .
             'MiddlewareInterface or a callable with a matching signature.'
         );
 

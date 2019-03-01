@@ -141,7 +141,7 @@ class MiddlewareDispatcherTest extends TestCase
         $this->assertEquals($responseProphecy->reveal(), $response);
     }
 
-    public function testExecutesMiddlewaresLastInFirstOut()
+    public function testExecutesMiddlewareLastInFirstOut()
     {
         $requestProphecy = $this->prophesize(ServerRequestInterface::class);
         $requestProphecy->getHeader(Argument::type('string'))->willReturn([]);

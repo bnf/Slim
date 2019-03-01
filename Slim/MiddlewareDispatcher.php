@@ -88,7 +88,7 @@ class MiddlewareDispatcher implements RequestHandlerInterface
             $this->addCallable($middleware);
         } else {
             throw new RuntimeException(
-                'Middlewares must be an object/class name referencing an implementation of ' .
+                'Middleware must be an object/class name referencing an implementation of ' .
                 'MiddlewareInterface or a callable with a matching signature.'
             );
         }
