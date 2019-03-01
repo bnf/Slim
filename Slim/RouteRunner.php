@@ -26,7 +26,7 @@ use Slim\Middleware\RoutingMiddleware;
 class RouteRunner implements RequestHandlerInterface
 {
     /**
-     * @var RouteResolver
+     * @var RouteResolverInterface
      */
     private $routeResolver;
 

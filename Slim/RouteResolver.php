@@ -37,7 +37,7 @@ class RouteResolver implements RouteResolverInterface
     protected $routeParser;
 
     /**
-     * @var Dispatcher
+     * @var Dispatcher|null
      */
     private $dispatcher;
 
@@ -65,7 +65,7 @@ class RouteResolver implements RouteResolverInterface
 
     /**
      * @param string $identifier
-     * @return Route
+     * @return RouteInterface
      */
     public function getRoute(string $identifier): RouteInterface
     {

@@ -113,7 +113,11 @@ class App implements RequestHandlerInterface
         $this->callableResolver = $callableResolver ?? new CallableResolver($container);
         $this->addSettings($settings);
 
-        $this->routeCollector = $routeCollector ?? new RouteCollector($responseFactory, $this->callableResolver, $this->container);
+        $this->routeCollector = $routeCollector ?? new RouteCollector(
+            $responseFactory,
+            $this->callableResolver,
+            $this->container
+        );
         $routerCacheFile = $this->getSetting('routerCacheFile', null);
         $this->routeCollector->setCacheFile($routerCacheFile);
 

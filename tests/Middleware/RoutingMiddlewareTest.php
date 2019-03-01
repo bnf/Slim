@@ -29,7 +29,8 @@ class RoutingMiddlewareTest extends TestCase
         return $routeCollector;
     }
 
-    protected function getRouteResolver() {
+    protected function getRouteResolver()
+    {
         $routeCollector = $this->getRouteCollector();
         return new RouteResolver($routeCollector);
     }

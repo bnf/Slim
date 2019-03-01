@@ -327,6 +327,7 @@ class RouteCollector implements RouteCollectorInterface
     /**
      * @param string $identifier
      * @return RouteInterface
+     * @throws RuntimeException
      */
     public function lookupRoute(string $identifier): RouteInterface
     {
