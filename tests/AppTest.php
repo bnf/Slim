@@ -1867,13 +1867,11 @@ class AppTest extends TestCase
         $responseFactoryProphecy = $this->prophesize(ResponseFactoryInterface::class);
         $responseFactoryProphecy->createResponse()->willReturn($responseProphecy->reveal());
 
-        $handlerMock = $this
-            ->getMockBuilder(stdClass::class)
-            ->getMock();
+        $handlerProphecy = $this->prophesize(stdClass::class);
 
         $containerProphecy = $this->prophesize(ContainerInterface::class);
         $containerProphecy->has(Argument::exact('handler'))->willReturn(true);
-        $containerProphecy->get(Argument::exact('handler'))->willReturn($handlerMock);
+        $containerProphecy->get(Argument::exact('handler'))->willReturn($handlerProphecy->reveal());
 
         $app = new App($responseFactoryProphecy->reveal(), $containerProphecy->reveal());
         $app->get('/', 'handler:method_does_not_exist');
