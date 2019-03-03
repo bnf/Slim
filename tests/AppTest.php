@@ -9,6 +9,7 @@
 namespace Slim\Tests;
 
 use Prophecy\Argument;
+use Prophecy\Prophecy\ObjectProphecy;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -1819,18 +1820,21 @@ class AppTest extends TestCase
         $responseFactoryProphecy = $this->prophesize(ResponseFactoryInterface::class);
         $responseFactoryProphecy->createResponse()->willReturn($responseProphecy->reveal());
 
-        $handlerMock = $this->getMockBuilder('MockRouteHandler')
-            ->disableOriginalClone()
-            ->setMethods(['foo'])
-            ->getMock();
-
-        $handlerMock
-            ->method('foo')
-            ->willReturn($responseProphecy->reveal());
+        $handler = new class($responseProphecy) {
+            private $responseProphecy;
+            public function __construct(ObjectProphecy $responseProphecy)
+            {
+                $this->responseProphecy = $responseProphecy;
+            }
+            public function foo(): ResponseInterface
+            {
+                return $this->responseProphecy->reveal();
+            }
+        };
 
         $containerProphecy = $this->prophesize(ContainerInterface::class);
         $containerProphecy->has(Argument::exact('handler'))->willReturn(true);
-        $containerProphecy->get(Argument::exact('handler'))->willReturn($handlerMock);
+        $containerProphecy->get(Argument::exact('handler'))->willReturn($handler);
 
         $app = new App($responseFactoryProphecy->reveal(), $containerProphecy->reveal());
         $app->get('/', 'handler:foo');
