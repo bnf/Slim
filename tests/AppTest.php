@@ -2065,21 +2065,17 @@ class AppTest extends TestCase
 
     public function testRun()
     {
-        $hasBeenRead = false;
-        $streamBody = '';
         $streamProphecy = $this->prophesize(StreamInterface::class);
-        $streamProphecy->__toString()->will(function () use (&$streamBody) {
-            return $streamBody;
+        $streamProphecy->__toString()->willReturn('');
+        $streamProphecy->eof()->willReturn(false);
+
+        $streamProphecy->write(Argument::type('string'))->will(function ($args) {
+            $cur = $this->reveal()->__toString();
+            $this->__toString()->willReturn($cur . $args[0]);
         });
-        $streamProphecy->write(Argument::type('string'))->will(function ($args) use (&$streamBody) {
-            $streamBody .= $args[0];
-        });
-        $streamProphecy->read(11)->will(function () use (&$hasBeenRead, &$streamBody) {
-            $hasBeenRead = true;
-            return $streamBody;
-        });
-        $streamProphecy->eof()->will(function () use (&$hasBeenRead) {
-            return $hasBeenRead;
+        $streamProphecy->read(11)->will(function () {
+            $this->eof()->willReturn(true);
+            return $this->reveal()->__toString();
         });
         $streamProphecy->isSeekable()->willReturn(true);
         $streamProphecy->rewind()->willReturn(true);
@@ -2121,26 +2117,31 @@ class AppTest extends TestCase
 
     public function testHandleReturnsEmptyResponseBodyWithHeadRequestMethod()
     {
-        $streamBody = '';
         $streamProphecy = $this->prophesize(StreamInterface::class);
-        $streamProphecy->__toString()->will(function () use (&$streamBody) {
-            return $streamBody;
-        });
-        $streamProphecy->write(Argument::type('string'))->will(function ($args) use (&$streamBody) {
-            $streamBody .= $args[0];
+        $streamProphecy->__toString()->willReturn('');
+        $streamProphecy->write(Argument::type('string'))->will(function ($args) {
+            $cur = $this->reveal()->__toString();
+            $this->__toString()->willReturn($cur . $args[0]);
         });
 
         $responseProphecy = $this->prophesize(ResponseInterface::class);
         $responseProphecy->getBody()->willReturn($streamProphecy->reveal());
-        $responseProphecy->withBody(Argument::any())->will(function ($args) use (&$streamBody) {
-            $streamBody = '';
+        $responseProphecy->withBody(Argument::type(StreamInterface::class))->will(function ($args) {
             $clone = clone $this;
             $clone->getBody()->willReturn($args[0]);
             return $clone;
         });
 
+        $emptyStreamProphecy = $this->prophesize(StreamInterface::class);
+        $emptyStreamProphecy->__toString()->willReturn('');
+        $emptyResponseProphecy = $this->prophesize(ResponseInterface::class);
+        $emptyResponseProphecy->getBody()->willReturn($emptyStreamProphecy->reveal());
+
         $responseFactoryProphecy = $this->prophesize(ResponseFactoryInterface::class);
-        $responseFactoryProphecy->createResponse()->willReturn($responseProphecy->reveal());
+        $responseFactoryProphecy->createResponse()->willReturn(
+            $responseProphecy->reveal(),
+            $emptyResponseProphecy->reveal()
+        );
 
         $called = 0;
         $app = new App($responseFactoryProphecy->reveal());
